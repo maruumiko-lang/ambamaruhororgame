@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+    }
+    canvas {
+      background: #111;
+      display: block;
+    }
+    #finishScreen {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: black;
+      color: red;
+      font-size: 32px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      visibility: hidden;
+    }
+    #finishScreen img { max-width: 80%; margin-top: 20px; }
+
+    /* D-Pad */
+    #dpad {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: 60px 60px 60px;
+      grid-template-rows: 60px 60px 60px;
+      gap: 5px;
+    }
+    #dpad button {
+      background: #444;
+      border: none;
+      color: white;
+      font-size: 24px;
+      border-radius: 8px;
+    }
+    #dpad button:active { background: red; }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+  <div id="dpad">
+    <div></div>
+    <button id="up">↑</button>
+    <div></div>
+    <button id="left">←</button>
+    <div></div>
+    <button id="right">→</button>
+    <div></div>
+    <button id="down">↓</button>
+    <div></div>
+  </div>
+
+  <div id="finishScreen">
+    <div id="finishText">☠︎✞⍟⚔︎⛧</div>
+    <img id="finishImg" src="jumpscare.jpg" alt="Foto Bryan Sigma">
+    <audio id="jumpscareSound" src="jumpscare.mp3"></audio>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // player
+    const player = { x: 60, y: 60, size: 18, speed: 4 };
+
+    // Stage data (jalur lebih tebal, finish di ujung)
+    const stages = [
+      {
+        path: [
+          {x: 50, y: 50, w: 300, h: 30},
+          {x: 320, y: 50, w: 30, h: 250},
+          {x: 50, y: 270, w: 300, h: 30},
+        ],
+        finish: { x: 330, y: 270, w: 30, h: 30 }
+      },
+      {
+        path: [
+          {x: 50, y: 50, w: 30, h: 250},
+          {x: 50, y: 270, w: 250, h: 30},
+          {x: 270, y: 100, w: 30, h: 200},
+          {x: 100, y: 100, w: 200, h: 30},
+        ],
+        finish: { x: 270, y: 100, w: 30, h: 30 }
+      },
+      {
+        path: [
+          {x: 50, y: 50, w: 300, h: 30},
+          {x: 320, y: 50, w: 30, h: 250},
+          {x: 100, y: 270, w: 250, h: 30},
+          {x: 100, y: 100, w: 30, h: 200},
+          {x: 130, y: 100, w: 220, h: 30},
+        ],
+        finish: { x: 330, y: 270, w: 30, h: 30 }
+      }
+    ];
+
+    let currentStage = 0;
+
+    // kontrol
+    let keys = {};
+    window.addEventListener("keydown", e => keys[e.key] = true);
+    window.addEventListener("keyup", e => keys[e.key] = false);
+
+    // D-Pad tombol
+    const btns = { up: false, down: false, left: false, right: false };
+    function bindBtn(id, key) {
+      const b = document.getElementById(id);
+      b.addEventListener("touchstart", () => btns[key] = true);
+      b.addEventListener("touchend", () => btns[key] = false);
+      b.addEventListener("mousedown", () => btns[key] = true);
+      b.addEventListener("mouseup", () => btns[key] = false);
+      b.addEventListener("mouseleave", () => btns[key] = false);
+    }
+    bindBtn("up", "up");
+    bindBtn("down", "down");
+    bindBtn("left", "left");
+    bindBtn("right", "right");
+
+    function isOnPath(px, py, size, path) {
+      return path.some(p =>
+        px < p.x + p.w &&
+        px + size > p.x &&
+        py < p.y + p.h &&
+        py + size > p.y
+      );
+    }
+
+    function resetPlayer() {
+      player.x = 60;
+      player.y = 60;
+    }
+
+    function update() {
+      let stage = stages[currentStage];
+      let newX = player.x;
+      let newY = player.y;
+
+      if (keys["ArrowUp"] || btns.up) newY -= player.speed;
+      if (keys["ArrowDown"] || btns.down) newY += player.speed;
+      if (keys["ArrowLeft"] || btns.left) newX -= player.speed;
+      if (keys["ArrowRight"] || btns.right) newX += player.speed;
+
+      if (isOnPath(newX, newY, player.size, stage.path)) {
+        player.x = newX;
+        player.y = newY;
+      } else {
+        resetPlayer();
+      }
+
+      // cek finish
+      if (
+        player.x < stage.finish.x + stage.finish.w &&
+        player.x + player.size > stage.finish.x &&
+        player.y < stage.finish.y + stage.finish.h &&
+        player.y + player.size > stage.finish.y
+      ) {
+        if (currentStage < stages.length - 1) {
+          currentStage++;
+          resetPlayer();
+        } else {
+          document.getElementById("finishScreen").style.visibility = "visible";
+          document.getElementById("jumpscareSound").play();
+        }
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      let stage = stages[currentStage];
+
+      // gambar jalur
+      ctx.fillStyle = "white";
+      stage.path.forEach(p => ctx.fillRect(p.x, p.y, p.w, p.h));
+
+      // finish area
+      ctx.fillStyle = "green";
+      ctx.fillRect(stage.finish.x, stage.finish.y, stage.finish.w, stage.finish.h);
+
+      // player
+      ctx.fillStyle = "red";
+      ctx.fillRect(player.x, player.y, player.size, player.size);
+
+      // info stage (pojok atas kiri jelas)
+      ctx.fillStyle = "yellow";
+      ctx.font = "bold 18px Arial";
+      ctx.fillText("Stage " + (currentStage + 1), 10, 40);
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop();
+  </script>
+</body>
+</html>
